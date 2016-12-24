@@ -21,7 +21,7 @@ public class DownloadManager {
         this.outputFolderName = outputFolderName;
     }
 
-    public Collection<DownloadResult> start() {
+    public Collection<DownloadResult> start() throws InterruptedException {
         Queue<DownloadTask> taskList = new ConcurrentLinkedQueue<>();
         Queue<DownloadResult> resultList = new ConcurrentLinkedQueue<>();
         
@@ -32,20 +32,16 @@ public class DownloadManager {
             taskList.add(new DownloadTask(link, outputFolderName));
         }
         
-        try {
-            ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
-            for (int i = 0; i < numThreads; i++) {
-                executorService.submit(new Downloader(taskList, resultList, 
-                    downloaderLimitSpeed));
-            }
-
-            executorService.shutdown();
-            boolean timeoutOccurs = executorService.awaitTermination(30,
-                TimeUnit
-                    .MINUTES);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
+        for (int i = 0; i < numThreads; i++) {
+            executorService.submit(new Downloader(taskList, resultList,
+                downloaderLimitSpeed));
         }
+
+        executorService.shutdown();
+        // TODO придумать что сделать timeout
+        boolean timeoutOccurs = executorService.awaitTermination(30,
+            TimeUnit.MINUTES);
         
         return resultList;
     }

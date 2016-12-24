@@ -8,12 +8,13 @@ import ru.chicker.exception.InvalidFileStructureException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Collection;
+import java.util.function.Consumer;
 
 public class Main {
     private static final int ONE_KILOBYTE = 1024;
     private static final int ONE_MEGABYTE = ONE_KILOBYTE * ONE_KILOBYTE;
     private static final int DEFAULT_DOWNLOADERS_NUMBER = 2;
-    private static final int DEFAULT_LIMIT_SPEED = 1000 * ONE_MEGABYTE;
+    private static final int DEFAULT_LIMIT_SPEED = ONE_MEGABYTE * ONE_MEGABYTE;
     private static final String APP_NAME = "download-manager";
     
     private static Logger log = LoggerFactory.getLogger(Main.class); 
@@ -23,6 +24,12 @@ public class Main {
     private static String outputFolder;
 
     public static void main(String[] args) {
+        long timeDuration = duration(Main::mainWork, args);
+        
+        printTimeStatistic(timeDuration);
+    }
+
+    private static void mainWork(String[] args) {
         Options cliOptions = getOptions();
 
         try {
@@ -32,7 +39,7 @@ public class Main {
             checkFileExists(linksFile);
             
             printHeader();
-
+            
             Collection<DownloadResult> resultList = startDownloading();
             
             printFooter(resultList);
@@ -45,23 +52,28 @@ public class Main {
         }
     }
 
+    private static void printTimeStatistic(long duration) {
+        System.out.printf("Общее время работы программы (в " +
+            "секундах): %d с \n", (duration) / 1000);
+    }
+
     private static void printHeader() {
         System.out.println("----------------------");
         System.out.println("Параметры запуска программы:");
-        System.out.println(String.format("  - Количество одновременно " +
+        System.out.printf("  - Количество одновременно " +
             "качающих " +
-            "потоков: %d", nThreads));
-        System.out.println(String.format("  - Общее ограничение на скорость " +
-            "скачивания: %s/sec", formatBytes(limitSpeed)));
-        System.out.println(String.format("  - Путь к файлу со списком ссылок:" +
-                " %s",
-            linksFile));
-        System.out.println(String.format("  - Имя папки, куда складывать " +
-                "файлы: %s",
-            outputFolder));
+            "потоков: %d\n", nThreads);
+        System.out.printf("  - Общее ограничение на скорость " +
+            "скачивания: %s/sec\n", formatBytes(limitSpeed));
+        System.out.printf("  - Путь к файлу со списком ссылок:" +
+                " %s%n",
+            linksFile);
+        System.out.printf("  - Имя папки, куда складывать " +
+                "файлы: %s\n",
+            outputFolder);
         System.out.println("----------------------");
     }
-
+    
     private static void printFooter(Collection<DownloadResult> resultList) {
         long sizeOfAllDownloads = 0;
         System.out.println("----------------------");
@@ -70,9 +82,9 @@ public class Main {
             sizeOfAllDownloads += r.getDownloadedFileSize();
             System.out.println(r.toString());
         }
-        System.out.println(String.format("Всего скачано [%d] файлов, " +
-            "общего размера: [%s]", resultList.size(), formatBytes
-            (sizeOfAllDownloads)));
+        System.out.printf("Всего скачано [%d] файлов, " +
+            "общего размера: [%s]\n", resultList.size(), formatBytes
+            (sizeOfAllDownloads));
         System.out.println("----------------------");
     }
 
@@ -164,5 +176,15 @@ public class Main {
         cliOptions.addOption("o", true, "имя папки, куда складывать скачанные" +
             " файлы");
         return cliOptions;
+    }
+    
+    private static <T> long duration(Consumer<T> func, T arg) {
+        long timeStartMs = System.currentTimeMillis();
+
+        func.accept(arg);
+
+        long timeEndMs = System.currentTimeMillis();
+        
+        return timeEndMs - timeStartMs;
     }
 }

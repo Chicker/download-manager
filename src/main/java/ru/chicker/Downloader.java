@@ -45,19 +45,14 @@ public class Downloader extends Thread {
                         
                         // обрабатываем задачу
                         long downloadedFileSize = downloadLink(downloadTask);
-                        DownloadResult downloadResult = new DownloadResult
-                            (downloadTask.getLinkInfo(),
-                                downloadedFileSize, true, null);
-                        resultList.add(downloadResult);
+                        
+                        resultList.add(successResult(downloadTask, downloadedFileSize));
 
                         log.info("Поток завершил выполнение {}",
                             downloadTask.toString());
 
                     } catch (IOException e) {
-                        DownloadResult result = new DownloadResult
-                            (downloadTask.getLinkInfo(), 0,
-                                false, e);
-                        resultList.add(result);
+                        resultList.add(errorResult(downloadTask, e));
                     }
                 }
                 // переходим к следующей задаче
@@ -183,5 +178,17 @@ public class Downloader extends Thread {
         } finally {
             fo.close();
         }
+    }
+
+    private DownloadResult successResult(DownloadTask downloadTask, long downloadedFileSize) {
+        return new DownloadResult
+            (downloadTask.getLinkInfo(),
+                downloadedFileSize, true, null);
+    }
+
+    private DownloadResult errorResult(DownloadTask downloadTask, IOException e) {
+        return new DownloadResult
+            (downloadTask.getLinkInfo(), 0,
+                false, e);
     }
 }
