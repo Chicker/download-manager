@@ -5,8 +5,7 @@ public class DownloadLinkInfo {
 
     private final String httpLink;
 
-    public DownloadLinkInfo(String 
-        fileName, String link) {
+    public DownloadLinkInfo(String fileName, String link) {
         this.fileName = fileName;
         this.httpLink = link;
     }
@@ -22,7 +21,7 @@ public class DownloadLinkInfo {
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof DownloadLinkInfo) {
-            return equals((DownloadLinkInfo)obj);
+            return equals((DownloadLinkInfo) obj);
         } else {
             return super.equals(obj);
         }

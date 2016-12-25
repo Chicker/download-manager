@@ -1,5 +1,7 @@
 package ru.chicker;
 
+import javaslang.control.Either;
+
 import java.util.Collection;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -21,17 +23,19 @@ public class DownloadManager {
         this.outputFolderName = outputFolderName;
     }
 
-    public Collection<DownloadResult> start() throws InterruptedException {
+    public Collection<Either<DownlodError, DownloadSuccess>> start()
+    throws InterruptedException {
         Queue<DownloadTask> taskList = new ConcurrentLinkedQueue<>();
-        Queue<DownloadResult> resultList = new ConcurrentLinkedQueue<>();
-        
+        Queue<Either<DownlodError, DownloadSuccess>> resultList = new
+            ConcurrentLinkedQueue<>();
+
         // Общее ограничение скорости делим на количество worker's
-        int downloaderLimitSpeed = (int)(limitSpeed / numThreads);
-        
-        for (DownloadLinkInfo link: links) {
+        int downloaderLimitSpeed = (int) (limitSpeed / numThreads);
+
+        for (DownloadLinkInfo link : links) {
             taskList.add(new DownloadTask(link, outputFolderName));
         }
-        
+
         ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
         for (int i = 0; i < numThreads; i++) {
             executorService.submit(new Downloader(taskList, resultList,
@@ -42,7 +46,7 @@ public class DownloadManager {
         // TODO придумать что сделать timeout
         boolean timeoutOccurs = executorService.awaitTermination(30,
             TimeUnit.MINUTES);
-        
+
         return resultList;
     }
 }

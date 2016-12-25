@@ -1,5 +1,6 @@
 package ru.chicker;
 
+import javaslang.control.Either;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,8 +17,8 @@ public class Main {
     private static final int DEFAULT_DOWNLOADERS_NUMBER = 2;
     private static final int DEFAULT_LIMIT_SPEED = ONE_MEGABYTE * ONE_MEGABYTE;
     private static final String APP_NAME = "download-manager";
-    
-    private static Logger log = LoggerFactory.getLogger(Main.class); 
+
+    private static Logger log = LoggerFactory.getLogger(Main.class);
     private static int nThreads = DEFAULT_DOWNLOADERS_NUMBER;
     private static int limitSpeed = DEFAULT_LIMIT_SPEED;
     private static String linksFile;
@@ -25,7 +26,7 @@ public class Main {
 
     public static void main(String[] args) {
         long timeDuration = duration(Main::mainWork, args);
-        
+
         printTimeStatistic(timeDuration);
     }
 
@@ -37,11 +38,12 @@ public class Main {
 
             checkFileExists(outputFolder);
             checkFileExists(linksFile);
-            
+        
             printHeader();
-            
-            Collection<DownloadResult> resultList = startDownloading();
-            
+
+            Collection<Either<DownlodError, DownloadSuccess>> resultList =
+                startDownloading();
+
             printFooter(resultList);
 
         } catch (ParseException e) {
@@ -73,15 +75,23 @@ public class Main {
             outputFolder);
         System.out.println("----------------------");
     }
-    
-    private static void printFooter(Collection<DownloadResult> resultList) {
+
+    private static void printFooter(Collection<Either<DownlodError, DownloadSuccess>>
+                                        resultList) {
         long sizeOfAllDownloads = 0;
         System.out.println("----------------------");
         System.out.println("Статистика работы программы:");
-        for (DownloadResult r : resultList) {
-            sizeOfAllDownloads += r.getDownloadedFileSize();
-            System.out.println(r.toString());
+
+        sizeOfAllDownloads = resultList.stream()
+            .filter(Either::isRight)
+            .mapToLong(x -> x.get().getDownloadedFileSize())
+            .sum();
+
+        for (Either<DownlodError, DownloadSuccess> dR : resultList) {
+            dR.forEach(System.out::println);
+            dR.orElseRun(System.out::println);
         }
+
         System.out.printf("Всего скачано [%d] файлов, " +
             "общего размера: [%s]\n", resultList.size(), formatBytes
             (sizeOfAllDownloads));
@@ -90,24 +100,24 @@ public class Main {
 
     private static String formatBytes(long bytes) {
         if (bytes < ONE_MEGABYTE) {
-            return String.format("%.2f Kb", (float)bytes / ONE_KILOBYTE);
+            return String.format("%.2f Kb", (float) bytes / ONE_KILOBYTE);
         } else {
-            return String.format("%.2f Mb", (float)bytes / (ONE_MEGABYTE));
+            return String.format("%.2f Mb", (float) bytes / (ONE_MEGABYTE));
         }
-        
+
     }
 
-    private static void checkFileExists(String fileOrDirName) throws 
-                                                   FileNotFoundException {
+    private static void checkFileExists(String fileOrDirName) throws
+                                                              FileNotFoundException {
         File fileHandler = new File(fileOrDirName);
         if (!fileHandler.exists()) {
             throw new FileNotFoundException(String.format("Файл/папка [%s] " +
-                "не существует или не доступна.",
+                    "не существует или не доступна.",
                 fileOrDirName));
         }
     }
 
-    private static Collection<DownloadResult> startDownloading()
+    private static Collection<Either<DownlodError, DownloadSuccess>> startDownloading()
     throws InterruptedException, FileNotFoundException,
            InvalidFileStructureException {
 
@@ -116,7 +126,7 @@ public class Main {
 
         DownloadManager dm = new DownloadManager(links, nThreads, limitSpeed,
             outputFolder);
-        
+
         return dm.start();
     }
 
@@ -137,11 +147,11 @@ public class Main {
             if (limitSpeedStrValue.endsWith("k")) {
                 limitSpeed = Math.round(ONE_KILOBYTE * Float.parseFloat
                     (limitSpeedStrValue
-                    .substring(0, limitSpeedStrValue.length() - 1)));
+                        .substring(0, limitSpeedStrValue.length() - 1)));
             } else if (limitSpeedStrValue.endsWith("m")) {
                 limitSpeed = Math.round(ONE_MEGABYTE * Float.parseFloat
                     (limitSpeedStrValue
-                    .substring(0, limitSpeedStrValue.length() - 1)));
+                        .substring(0, limitSpeedStrValue.length() - 1)));
             } else {
                 limitSpeed = Integer.parseInt(limitSpeedStrValue);
             }
@@ -177,14 +187,14 @@ public class Main {
             " файлы");
         return cliOptions;
     }
-    
+
     private static <T> long duration(Consumer<T> func, T arg) {
         long timeStartMs = System.currentTimeMillis();
 
         func.accept(arg);
 
         long timeEndMs = System.currentTimeMillis();
-        
+
         return timeEndMs - timeStartMs;
     }
 }

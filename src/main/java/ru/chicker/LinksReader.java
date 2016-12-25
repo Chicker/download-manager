@@ -2,13 +2,17 @@ package ru.chicker;
 
 import ru.chicker.exception.InvalidFileStructureException;
 
-import java.io.*;
-import java.util.*;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.util.HashSet;
+import java.util.NoSuchElementException;
+import java.util.Scanner;
+import java.util.Set;
 
 public class LinksReader {
 
     public Set<DownloadLinkInfo> load(String linksFileName)
-        throws FileNotFoundException, InvalidFileStructureException {
+    throws FileNotFoundException, InvalidFileStructureException {
         
         Set<DownloadLinkInfo> result = new HashSet<>();
 
@@ -18,7 +22,7 @@ public class LinksReader {
                     String httpLink = scanner.next();
                     String fileNameToSave = scanner.next();
 
-                    result.add(new DownloadLinkInfo(fileNameToSave, 
+                    result.add(new DownloadLinkInfo(fileNameToSave,
                         httpLink));
                 } catch (NoSuchElementException ex) {
                     throw new InvalidFileStructureException(linksFileName);
