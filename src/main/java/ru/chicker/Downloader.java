@@ -41,6 +41,8 @@ public class Downloader extends Thread {
 
     @Override
     public void run() {
+        // other implementation of the stream is needed, because the task 
+        // from the tasklist after processing must be removed  
         StreamSupport.stream(new TaskQueueSpliterator(taskList), false)
             .map(task ->
                 downloadLink(task)
@@ -56,6 +58,7 @@ public class Downloader extends Thread {
         int bytesRead = 0;
         // скачиваем за раз сколько позволено или размер буфера
         int bytesToReadOnce = limit <= BUFFER_SIZE ? limit : BUFFER_SIZE;
+        byte[] buffer = new byte[BUFFER_SIZE];
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream(BUFFER_SIZE);
 
         do {
@@ -65,10 +68,14 @@ public class Downloader extends Thread {
             do {
                 log.debug("Загрузчик начал закачку очередной порции данных");
 
-                bytesRead = readAndWriteBuffer(inputStream, outputStream,
-                    bytesToReadOnce);
+                bytesRead = inputStream.read(buffer, 0, bytesToReadOnce);
 
-                if (bytesRead == -1) break;
+                if (bytesRead > 0) {
+                    log.debug("Загрузчик прочитал {} байт", bytesRead);
+                    outputStream.write(buffer, 0, bytesRead);
+                } else {
+                    break;
+                }
 
                 sumBytesReadToLimit += bytesRead;
 
@@ -99,23 +106,6 @@ public class Downloader extends Thread {
         return outputStream;
     }
 
-    private int readAndWriteBuffer(InputStream inputStream,
-                                   ByteArrayOutputStream output,
-                                   int size)
-    throws IOException {
-        int bytesRead;
-
-        byte[] buffer = new byte[BUFFER_SIZE];
-        bytesRead = inputStream.read(buffer, 0, size);
-
-        if (bytesRead != -1) {
-            log.debug("Загрузчик прочитал {} байт", bytesRead);
-            output.write(buffer, 0, bytesRead);
-        }
-
-        return bytesRead;
-    }
-
     private Either<Throwable, Long> downloadLink(DownloadTask downloadTask) {
 
         return Try.of(() -> {
@@ -124,54 +114,35 @@ public class Downloader extends Thread {
             long bytesRead = 0;
             log.info("Приступаю к загрузке {}", downloadTask.getLinkInfo().getFileName());
 
-            CloseableHttpResponse response = httpclient.execute(httpget);
             bytesRead = 0;
-            try {
+            try (CloseableHttpResponse response = httpclient.execute(httpget)) {
                 int statusCode = response.getStatusLine().getStatusCode();
                 if (statusCode == 200) {
                     HttpEntity entity = response.getEntity();
                     if (entity != null) {
-                        InputStream instream = entity.getContent();
-                        try {
+                        try (InputStream instream = entity.getContent()) {
                             ByteArrayOutputStream byteStream = readWithLimit(speedLimit,
                                 instream);
-                            saveToFile(downloadTask.getOutputFolder(), downloadTask
-                                    .getLinkInfo().getFileName(),
-                                byteStream);
+                            Path outputFilePath = FileSystems.getDefault().getPath(downloadTask.getOutputFolder(),
+                                downloadTask.getLinkInfo().getFileName());
+                            try (FileOutputStream fo = new FileOutputStream(outputFilePath.toFile())) {
+                                fo.write(byteStream.toByteArray());
+                                log.debug("Загрузчик сохранил закачку в папку {}", outputFilePath);
+                            }
+
                             bytesRead = byteStream.size();
 
-                        } finally {
-                            instream.close();
                         }
                     }
                 } else {
                     throw new IOException(response.getStatusLine().toString());
                 }
-
-            } finally {
-                response.close();
             }
-
             log.info("Загрузка {} завершена", downloadTask.getLinkInfo().getFileName());
+
             return bytesRead;
         }).toEither();
     }
-
-    private void saveToFile(String outputFolder, String outputFile,
-                            ByteArrayOutputStream
-                                byteStream)
-    throws IOException {
-        Path outputFilePath = FileSystems.getDefault().getPath(outputFolder,
-            outputFile);
-        FileOutputStream fo = new FileOutputStream(outputFilePath.toFile());
-        try {
-            fo.write(byteStream.toByteArray());
-            log.debug("Загрузчик сохранил закачку в папку {}", outputFilePath);
-        } finally {
-            fo.close();
-        }
-    }
-
 
     private final class TaskQueueSpliterator
         implements Spliterator<DownloadTask> {

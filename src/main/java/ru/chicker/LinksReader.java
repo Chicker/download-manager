@@ -25,7 +25,7 @@ public class LinksReader {
                     result.add(new DownloadLinkInfo(fileNameToSave,
                         httpLink));
                 } catch (NoSuchElementException ex) {
-                    throw new InvalidFileStructureException(linksFileName);
+                    throw new InvalidFileStructureException(linksFileName, ex);
                 }
             }
         }
